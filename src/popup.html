@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<title>Job Autofill</title>
+</head>
+<body class="popup">
+  <header>
+    <strong>Job Autofill</strong>
+    <a href="#" id="open-options">Profile</a>
+  </header>
+  <p id="who" class="muted"></p>
+  <button id="fill" class="primary">Fill this application</button>
+  <div id="result" hidden></div>
+  <button id="save" class="secondary">Save job to my list</button>
+  <h2>Recent applications</h2>
+  <ul id="jobs"></ul>
+  <p class="muted small">Filled fields are outlined green, ones to check are amber. Nothing is submitted for you.</p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

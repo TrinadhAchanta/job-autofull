@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Job Autofill",
+  "version": "0.1.0",
+  "description": "Fill job application forms from your saved profile in one click. You always review and submit yourself.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://*.greenhouse.io/*",
+    "https://*.lever.co/*",
+    "https://*.ashbyhq.com/*",
+    "https://*.myworkdayjobs.com/*",
+    "https://*.myworkdaysite.com/*",
+    "https://*.smartrecruiters.com/*",
+    "https://*.icims.com/*",
+    "https://*.workable.com/*",
+    "https://*.bamboohr.com/*",
+    "https://*.jobvite.com/*"
+  ],
+  "background": { "service_worker": "src/background.js", "type": "module" },
+  "action": { "default_popup": "src/popup.html", "default_title": "Job Autofill" },
+  "options_page": "src/options.html",
+  "commands": {
+    "fill-form": {
+      "suggested_key": { "default": "Alt+Shift+F" },
+      "description": "Fill the application form on this page"
+    }
+  },
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "job-autofill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome extension that fills job application forms from your saved profile",
+  "type": "module",
+  "scripts": { "test": "node test/run-tests.mjs" },
+  "devDependencies": { "playwright": "^1.48.0" },
+  "license": "MIT"
+}
