@@ -69,6 +69,11 @@ check('postal', await val('#i5'), '02101');
 check('phone', await val('#i6'), '555-0100');
 check('keeps existing value', await val('#i7'), 'already@there.com');
 check('phone device type not filled with number', await val('#i8'), '');
+const txt = (sel) => page.$eval(sel, (el) => el.textContent);
+check('workday country dropdown', await txt('#dd1'), 'United States of America');
+check('workday how-did-you-hear dropdown', await txt('#dd2'), 'Company Website');
+check('workday device type dropdown untouched', await txt('#dd3'), 'Select One');
+check('no dropdown left open', await page.$$eval('[role=listbox]', (l) => l.length), 0);
 
 await browser.close();
 console.log(failures ? `\n${failures} failed` : '\nAll passed');

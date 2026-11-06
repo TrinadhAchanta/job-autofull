@@ -1,6 +1,12 @@
 import { fillTab } from './fill-tab.js';
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  const { profile } = await chrome.storage.local.get('profile');
+  if (!profile) {
+    // Start from the sample profile so filling works even before the first Save.
+    const sample = await (await fetch(chrome.runtime.getURL('sample-profile.json'))).json();
+    await chrome.storage.local.set({ profile: sample });
+  }
   if (reason === 'install') chrome.runtime.openOptionsPage();
 });
 

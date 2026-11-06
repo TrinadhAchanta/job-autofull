@@ -9,4 +9,18 @@
 <div><label for="i6">Phone Number</label><input id="i6" data-automation-id="phone-number"></div>
 <div><label for="i7">Email Address</label><input id="i7" data-automation-id="email" value="already@there.com"></div>
 <div><label for="i8">Phone Device Type</label><input id="i8" data-automation-id="phone-device-type"></div>
+<div><label for="dd1">Country<abbr>*</abbr></label><button id="dd1" type="button" aria-haspopup="listbox" data-automation-id="countryDropdown" data-opts="Canada|India|United States of America">Select One</button></div>
+<div><label for="dd2">How Did You Hear About Us?<abbr>*</abbr></label><button id="dd2" type="button" aria-haspopup="listbox" aria-required="true" data-opts="Job Board|Company Website|Referral">Select One</button></div>
+<div><label for="dd3">Phone Device Type</label><button id="dd3" type="button" aria-haspopup="listbox" data-opts="Mobile|Home">Select One</button></div>
+<script>
+// Imitates Workday's dropdown: clicking the button renders a listbox at the end of <body>.
+document.querySelectorAll('button[aria-haspopup]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[role=listbox]').forEach((l) => l.remove());
+  const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox');
+  b.dataset.opts.split('|').forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.textContent = t;
+    li.addEventListener('click', () => { b.textContent = t; ul.remove(); }); ul.append(li); });
+  setTimeout(() => document.body.append(ul), 100);
+}));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('[role=listbox]').forEach((l) => l.remove()); });
+</script>
 </body></html>

@@ -24,9 +24,10 @@ $('fill').addEventListener('click', async () => {
   const box = $('result');
   box.hidden = false; box.className = ''; box.textContent = 'Filling...';
   let r;
-  try { r = await fillTab(tab.id); } catch (e) { r = { error: "This page can't be filled (" + e.message + ')' }; }
+  try { r = await fillTab(tab.id); } catch (e) { r = { error: "Couldn't reach this page: " + e.message + '. Reload the page and try again.' }; }
   box.replaceChildren();
   if (r.error) { box.className = 'warn'; box.textContent = r.error; return; }
+  if (!r.filled.length && !r.review.length) { box.className = 'warn'; box.textContent = "No form fields found on this page. Open the page with the application form (after clicking Apply) and try again."; return; }
   const p = document.createElement('p');
   p.textContent = `Filled ${r.filled.length} field${r.filled.length === 1 ? '' : 's'}` + (r.kept ? `, left ${r.kept} you'd already filled.` : '.');
   box.append(p);

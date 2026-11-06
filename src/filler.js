@@ -209,7 +209,52 @@
     return 'filled';
   }
 
-  function fill(profile, options = {}) {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function realClick(el) {
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
+      el.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, { bubbles: true, cancelable: true, view: window }));
+    }
+    el.click();
+  }
+
+  // Workday, Ashby and others use a button that opens a list instead of a
+  // <select>. Open it, pick the best matching option, or close it again.
+  async function fillCustomDropdowns(profile, result, overwrite) {
+    const PLACEHOLDER = /^(select( one)?|choose( one)?|please select|--|\s*)$/i;
+    const dropdowns = [...document.querySelectorAll('button[aria-haspopup="listbox"], [role="combobox"]:not(input)')]
+      .filter((el) => isVisible(el) && !el.querySelector('input'));
+    for (const el of dropdowns) {
+      const current = textOf(el);
+      if (!PLACEHOLDER.test(current) && !overwrite) { result.kept++; continue; }
+      const q = questionFor(el).replace(current, '');
+      const match = valueFor(q, profile);
+      if (!match || !match.value) {
+        if (el.getAttribute('aria-required') === 'true' || /required/i.test(el.getAttribute('aria-label') || '')) { mark(el, 'review', 'No saved answer for this question'); result.review.push(shortQ(q)); }
+        continue;
+      }
+      realClick(el);
+      let options = [];
+      for (let i = 0; i < 10 && !options.length; i++) {
+        await sleep(150);
+        options = [...document.querySelectorAll('[role="option"]')].filter((o) => o.getBoundingClientRect().height > 0);
+      }
+      let best = null, bestScore = 0;
+      for (const o of options) { const sc = optionScore(textOf(o), match.value); if (sc > bestScore) { best = o; bestScore = sc; } }
+      if (best && bestScore >= 60) {
+        realClick(best);
+        await sleep(250);
+        mark(el, 'filled', 'Filled from your profile: ' + match.key); result.filled.push(match.key);
+      } else {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+        document.activeElement && document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+        await sleep(150);
+        mark(el, 'review', 'Could not pick an option automatically'); result.review.push(shortQ(q));
+      }
+    }
+  }
+
+  async function fill(profile, options = {}) {
     const overwrite = !!options.overwrite;
     const doc = document;
     const result = { filled: [], review: [], kept: 0, host: location.hostname };
@@ -253,6 +298,7 @@
       else if (r === 'kept') result.kept++;
       else { mark(el, 'review', 'Could not pick an option automatically'); result.review.push(shortQ(q)); }
     }
+    await fillCustomDropdowns(profile, result, overwrite);
     return result;
   }
 
