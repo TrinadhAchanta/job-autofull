@@ -13,11 +13,17 @@ export const TailoredResume = z.object({
     title: z.string(),
     dates: z.string(),
     location: z.string(),
-    bullets: z.array(z.string()),
+    bullets: z.array(z.object({
+      label: z.string().describe('Short bold lead-in, e.g. "Contract Information Extraction"'),
+      text: z.string().describe('The rest of the bullet after the lead-in'),
+    })),
   })),
   projects: z.array(z.object({ name: z.string(), description: z.string() })),
   skills: z.array(z.object({ group: z.string(), items: z.array(z.string()) })),
-  education: z.array(z.object({ school: z.string(), degree: z.string(), dates: z.string(), details: z.string() })),
+  education: z.array(z.object({
+    school: z.string(), degree: z.string(), dates: z.string(), location: z.string(),
+    details: z.array(z.object({ label: z.string(), text: z.string() })),
+  })),
   certifications: z.array(z.string()),
   matchNotes: z.string().describe('For the candidate only: how well they fit and any requirements they do not meet'),
 });
@@ -26,7 +32,7 @@ const SYSTEM = `You tailor a candidate's resume to one job posting.
 
 The base resume is the only source of facts. You may choose which bullets to keep, put the most relevant first, shorten them, and reword them using the posting's vocabulary where the base resume supports it. You must not add employers, titles, dates, degrees, certifications, tools, skills, metrics or numbers that are not in the base resume, and you must not make a number bigger or more specific. If the posting asks for something the candidate lacks, leave it out of the resume and mention it in matchNotes.
 
-Keep every job from the base resume (you may trim older roles to two bullets). Keep it to one page: at most 5 bullets for the most relevant job, 3-4 for others, at most 3 projects. Write in plain, specific language with no buzzword filler.`;
+Keep every job from the base resume. Match the base resume's style: each bullet starts with a short bold lead-in (label) followed by the detail. Keep it to two pages at most: up to 6 bullets for the most relevant job, 3-5 for others, up to 6 projects, and skills grouped as in the base resume with the groups and items most relevant to this job first. Certifications are written as "Name: detail" when there is a detail.`;
 
 const norm = (s) => String(s).toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
 
@@ -35,9 +41,9 @@ export function factCheck(resume, baseText) {
   const base = norm(baseText).replace(/,/g, '');
   const problems = [];
   const texts = [resume.headline, resume.summary,
-    ...resume.experience.flatMap((e) => [e.company, e.title, ...e.bullets]),
+    ...resume.experience.flatMap((e) => [e.company, e.title, ...e.bullets.flatMap((b) => [b.label, b.text])]),
     ...resume.projects.flatMap((p) => [p.name, p.description]),
-    ...resume.education.flatMap((e) => [e.school, e.degree, e.details]),
+    ...resume.education.flatMap((e) => [e.school, e.degree, ...e.details.flatMap((d) => [d.label, d.text])]),
     ...resume.certifications];
   for (const t of texts) {
     for (const m of norm(t).replace(/,/g, '').matchAll(/\$?\d+(?:\.\d+)?\s*(?:%|k\+?|m\+?|\+|x)?/g)) {

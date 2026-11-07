@@ -1,5 +1,6 @@
 {
   "firstName": "Trinadh",
+  "middleName": "Kumar",
   "lastName": "Achanta",
   "preferredName": "Tri",
   "email": "trinadh.eng@gmail.com",
@@ -35,6 +36,9 @@
   "summary": "",
   "coverLetter": "",
   "customAnswers": [
-    { "match": "certification", "answer": "Microsoft Certified: Azure Data Engineer Associate" }
+    {
+      "match": "certification",
+      "answer": "Microsoft Certified: Azure Data Engineer Associate"
+    }
   ]
 }

@@ -87,14 +87,14 @@ console.log('\n# Resume tailoring (Claude replaced by canned replies)');
 const baseResume = readFileSync(path.join(here, 'fixtures', 'base-resume.md'), 'utf8');
 const good = {
   headline: 'Data Scientist', summary: 'Data Scientist with 4+ years building NLP and LLM systems.',
-  experience: [{ company: 'Verizon', title: 'Data Scientist', dates: 'Jul 2024 - Mar 2026', location: 'Boston, MA', bullets: ['Built NLP extraction over 10K+ contracts with 92% accuracy'] }],
+  experience: [{ company: 'Verizon', title: 'Data Scientist', dates: 'Jul 2024 - Mar 2026', location: 'Boston, MA', bullets: [{ label: 'Contract Extraction', text: 'Built NLP extraction over 10K+ contracts with 92% accuracy' }] }],
   projects: [], skills: [{ group: 'Languages', items: ['Python', 'SQL'] }],
-  education: [{ school: 'New England College', degree: 'M.S. Computer Information Systems', dates: '2024', details: 'GPA 3.8' }],
+  education: [{ school: 'New England College', degree: 'M.S. Computer Information Systems', dates: '2024', location: 'Henniker, NH', details: [{ label: 'GPA', text: '3.8' }] }],
   certifications: ['Azure Data Engineer Associate'], matchNotes: 'Strong NLP fit.',
 };
 t('fact check passes a faithful resume', factCheck(good, baseResume).length === 0, factCheck(good, baseResume).join('; '));
 const bad = structuredClone(good);
-bad.experience[0].bullets.push('Cut cloud costs by 70%');
+bad.experience[0].bullets.push({ label: 'Cost', text: 'Cut cloud costs by 70%' });
 bad.experience.push({ company: 'Google', title: 'ML Engineer', dates: '2020', location: '', bullets: [] });
 bad.skills[0].items.push('Kubernetes');
 const probs = factCheck(bad, baseResume);
@@ -111,7 +111,7 @@ const profile = { ...JSON.parse(readFileSync(path.join(here, '..', '..', 'sample
 const pdf = path.join(tmp, 'resume.pdf');
 await writePdf(browser, resumeHtml(good, profile), pdf);
 const pdfText = readFileSync(pdf, 'latin1');
-t('resume PDF is written and is one page', statSync(pdf).size > 5000 && (pdfText.match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+t('resume PDF is written, one page for a short resume, with the Computer Modern font', statSync(pdf).size > 5000 && (pdfText.match(/\/Type\s*\/Page[^s]/g) || []).length === 1 && /CMU/.test(pdfText));
 
 // ---------- applying ----------
 console.log('\n# Filling applications (local practice pages)');

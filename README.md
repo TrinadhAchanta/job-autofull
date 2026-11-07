@@ -18,7 +18,7 @@ search  →  tailor  →  fill  →  review page  →  you approve  →  submit
 ```
 
 - **search** checks company career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee) and job search sites (Adzuna, The Muse, Remotive, Himalayas). Optionally it can also search LinkedIn, Indeed, Glassdoor and ZipRecruiter. It drops jobs whose title, location, age or required years of experience don't fit your settings, and removes duplicates.
-- **tailor** asks Claude to pick, reorder and reword your real resume for each job and saves it as a one-page PDF. A fact check then compares every number, employer, skill and certification with your base resume. If anything was made up, it asks Claude to fix it once, and if it is still wrong the job is flagged for you instead of used.
+- **tailor** asks Claude to pick, reorder and reword your real resume for each job and saves it as a PDF in the same layout as a classic LaTeX resume (Computer Modern font, small-caps section titles, bold lead-ins on each bullet), at most two pages. A fact check then compares every number, employer, skill and certification with your base resume. If anything was made up, it asks Claude to fix it once, and if it is still wrong the job is flagged for you instead of used.
 - **fill** opens each application in Chrome, clicks through to the form, fills it using the same matching as the extension, uploads the tailored resume, and takes a screenshot.
 - **review** builds `autopilot/data/review.html`: every job with its fit notes, tailored resume, screenshot and anything left for you to answer.
 - **approve** + **submit** sends only the jobs you approved, and only when every required question was answered. It waits for the "thank you" page and marks each job submitted or failed.
