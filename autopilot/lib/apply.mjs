@@ -55,23 +55,39 @@ async function blockers(page) {
   return found;
 }
 
-async function attachResume(frame, pdfPath) {
+async function attachFiles(frame, { resume, coverLetter }) {
   const inputs = frame.locator('input[type=file]');
   const n = await inputs.count();
-  if (!n) return false;
-  let pick = 0;
+  const done = { resume: false, coverLetter: false };
+  let resumeIdx = -1, coverIdx = -1;
   for (let i = 0; i < n; i++) {
     const hint = await inputs.nth(i).evaluate((el) => `${el.name} ${el.id} ${el.getAttribute('aria-label') || ''} ${el.getAttribute('data-automation-id') || ''} ${(el.closest('div, fieldset, li') || el).innerText || ''}`).catch(() => '');
-    if (/resume|cv\b|curriculum/i.test(hint) && !/cover/i.test(hint)) { pick = i; break; }
+    if (/cover/i.test(hint)) { if (coverIdx < 0) coverIdx = i; } else if (/resume|cv\b|curriculum/i.test(hint)) { if (resumeIdx < 0) resumeIdx = i; }
   }
-  await inputs.nth(pick).setInputFiles(pdfPath);
-  await frame.waitForTimeout(1500);
-  return true;
+  if (resumeIdx < 0 && n && coverIdx !== 0) resumeIdx = 0;
+  if (resume && resumeIdx >= 0) { await inputs.nth(resumeIdx).setInputFiles(resume); done.resume = true; }
+  if (coverLetter && coverIdx >= 0) { await inputs.nth(coverIdx).setInputFiles(coverLetter); done.coverLetter = true; }
+  if (done.resume || done.coverLetter) await frame.waitForTimeout(1500);
+  return done;
 }
 
-export async function fillApplication(context, job, { profile, pdfPath, shotPath, submit = false }) {
+const qNorm = (q) => String(q).replace(/\s*\*\s*$/, '').trim().toLowerCase();
+
+// Free-text questions: reuse answers you already reviewed, draft the rest.
+async function answerOpenQuestions(frame, { answerer, savedAnswers = [] }) {
+  const qs = await frame.evaluate(() => globalThis.__jobAutofill.openQuestions());
+  if (!qs.length) return [];
+  const saved = new Map(savedAnswers.map((a) => [qNorm(a.question), a.answer]));
+  const answers = qs.filter((q) => saved.has(qNorm(q.question))).map((q) => ({ id: q.id, question: q.question, answer: saved.get(qNorm(q.question)) }));
+  const rest = qs.filter((q) => !saved.has(qNorm(q.question)));
+  if (rest.length && answerer) answers.push(...(await answerer(rest).catch(() => [])));
+  await frame.evaluate((a) => globalThis.__jobAutofill.setAnswers(a), answers.map(({ id, answer }) => ({ id, answer })));
+  return answers.map(({ question, answer }) => ({ question, answer }));
+}
+
+export async function fillApplication(context, job, { profile, pdfPath, coverLetterPath, shotPath, submit = false, answerer = null, savedAnswers = [] }) {
   let page = await context.newPage();
-  const out = { review: [], filled: 0, notes: [] };
+  const out = { review: [], filled: 0, notes: [], drafted: [] };
   try {
     await page.goto(job.applyUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -86,7 +102,12 @@ export async function fillApplication(context, job, { profile, pdfPath, shotPath
       const r = await frame.evaluate((p) => globalThis.__jobAutofill.fill(p, {}), profile);
       out.filled = r.filled.length;
       out.review = r.review;
-      if (pdfPath && (await attachResume(frame, pdfPath))) out.review = out.review.filter((q) => q !== 'Resume upload');
+      const attached = await attachFiles(frame, { resume: pdfPath, coverLetter: coverLetterPath });
+      if (attached.resume) out.review = out.review.filter((q) => q !== 'Resume upload');
+      if (attached.coverLetter) out.review = out.review.filter((q) => q !== 'Cover letter upload');
+      out.drafted = await answerOpenQuestions(frame, { answerer, savedAnswers });
+      const answered = new Set(out.drafted.map((a) => qNorm(a.question)));
+      out.review = out.review.filter((q) => !answered.has(qNorm(q)));
       if (/myworkday/i.test(page.url())) out.review.push('Workday forms have several pages: finish the remaining pages by hand');
       out.review.push(...out.notes.filter((n) => !out.review.includes(n)));
     }

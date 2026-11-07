@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 
 export const TailoredResume = z.object({
-  headline: z.string().describe('Job title line under the name, taken from titles you have actually held'),
+  headline: z.string().describe('Target-role line under the name, matching the role family of this posting (e.g. "Software Engineer", "Data Scientist", "Machine Learning Engineer"), optionally with a short focus like "| Python, ML Systems"'),
   summary: z.string().describe('2-3 sentences aimed at this job'),
   experience: z.array(z.object({
     company: z.string(),
@@ -25,14 +25,19 @@ export const TailoredResume = z.object({
     details: z.array(z.object({ label: z.string(), text: z.string() })),
   })),
   certifications: z.array(z.string()),
+  coverLetter: z.string().describe('Cover letter for this job, 180-260 words, plain paragraphs separated by blank lines, no address block or date, starting "Dear Hiring Team," and ending with the sign-off line "Sincerely," only (the name is added later)'),
   matchNotes: z.string().describe('For the candidate only: how well they fit and any requirements they do not meet'),
 });
 
 const SYSTEM = `You tailor a candidate's resume to one job posting.
 
+Shape the whole resume around the role in the posting. If it is a Software Engineer job, the headline says Software Engineer, the summary presents the candidate as a software engineer, and each job's bullets lead with the engineering work that is really in the base resume (building pipelines, APIs, services, deployment, cloud, testing, performance) described in the posting's terms. If it is a Data Scientist, ML Engineer, Data Engineer or Analyst job, lead with the matching work in the same way. Order skill groups and items by what the posting asks for. Each employer's job title must stay exactly as in the base resume, because employers verify it; only the headline and summary describe the target role.
+
 The base resume is the only source of facts. You may choose which bullets to keep, put the most relevant first, shorten them, and reword them using the posting's vocabulary where the base resume supports it. You must not add employers, titles, dates, degrees, certifications, tools, skills, metrics or numbers that are not in the base resume, and you must not make a number bigger or more specific. If the posting asks for something the candidate lacks, leave it out of the resume and mention it in matchNotes.
 
-Keep every job from the base resume. Match the base resume's style: each bullet starts with a short bold lead-in (label) followed by the detail. Keep it to two pages at most: up to 6 bullets for the most relevant job, 3-5 for others, up to 6 projects, and skills grouped as in the base resume with the groups and items most relevant to this job first. Certifications are written as "Name: detail" when there is a detail.`;
+Keep every job from the base resume. Match the base resume's style: each bullet starts with a short bold lead-in (label) followed by the detail. Keep it to two pages at most: up to 6 bullets for the most relevant job, 3-5 for others, up to 6 projects, and skills grouped as in the base resume with the groups and items most relevant to this job first. Certifications are written as "Name: detail" when there is a detail.
+
+Also write a short cover letter for this specific company and role: why this role, and two or three concrete examples from the base resume that match the posting. The same fact rules apply. Do not claim knowledge about the company beyond what the posting says.`;
 
 const norm = (s) => String(s).toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
 
@@ -44,13 +49,14 @@ export function factCheck(resume, baseText) {
     ...resume.experience.flatMap((e) => [e.company, e.title, ...e.bullets.flatMap((b) => [b.label, b.text])]),
     ...resume.projects.flatMap((p) => [p.name, p.description]),
     ...resume.education.flatMap((e) => [e.school, e.degree, ...e.details.flatMap((d) => [d.label, d.text])]),
-    ...resume.certifications];
+    ...resume.certifications, resume.coverLetter || ''];
   for (const t of texts) {
     for (const m of norm(t).replace(/,/g, '').matchAll(/\$?\d+(?:\.\d+)?\s*(?:%|k\+?|m\+?|\+|x)?/g)) {
       const tok = m[0].replace(/\s+/g, '');
       if (/^\d{4}$/.test(tok)) continue; // years are checked through dates
-      const bare = tok.replace(/[^\d.]/g, '');
-      if (!base.includes(tok) && !base.includes(bare)) problems.push(`number "${m[0].trim()}" is not in your resume`);
+      const hasUnit = /[%$kmx+]/.test(tok);
+      const bareRe = new RegExp(`(^|[^\\d.])${tok.replace(/[^\d.]/g, '').replace('.', '\\.')}([^\\d]|$)`);
+      if (!base.includes(tok) && (hasUnit || !bareRe.test(base))) problems.push(`number "${m[0].trim()}" is not in your resume`);
     }
   }
   for (const e of resume.experience) {
@@ -94,4 +100,42 @@ export async function tailorResume({ baseResume, job, model = 'claude-opus-5-5',
     problems = factCheck(resume, baseResume);
   }
   return { resume, problems };
+}
+
+// ---- Answers to a form's open questions ----
+
+const Answers = z.object({
+  answers: z.array(z.object({
+    id: z.string(),
+    canAnswer: z.boolean().describe('false when an honest answer needs information that is not in the resume or profile'),
+    answer: z.string().describe('The answer to put in the form, or "" when canAnswer is false'),
+  })),
+});
+
+const ANSWER_SYSTEM = `You fill in the free-text questions on a job application for the candidate, in their voice (first person).
+
+Use only facts from the base resume, the candidate's profile answers and the job posting. Never invent experience, numbers, names, salary figures, dates or reasons. If a question needs information you do not have (for example a referrer's name, a salary number not in the profile, a portfolio link not given, or personal motivations beyond what the resume supports), set canAnswer to false and leave answer empty.
+
+Match the length to the question: one line for short fields, 80-180 words for open questions like "Why do you want to work here?" unless a character limit is given. Write plainly and specifically about this company and role.`;
+
+export async function answerQuestions({ baseResume, profile, job, questions, model = 'claude-opus-5-5', effort = 'medium', client = new Anthropic() }) {
+  if (!questions.length) return [];
+  const facts = Object.fromEntries(Object.entries(profile).filter(([k, v]) => v && typeof v === 'string' && !['coverLetter', 'summary', 'gender', 'race', 'hispanic', 'veteran', 'disability'].includes(k)));
+  const response = await client.messages.parse({
+    model,
+    max_tokens: 16000,
+    thinking: { type: 'adaptive' },
+    output_config: { effort, format: zodOutputFormat(Answers) },
+    system: ANSWER_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: `<base_resume>\n${baseResume}\n</base_resume>\n<profile>\n${JSON.stringify(facts, null, 1)}\n</profile>\n<job_posting>\nCompany: ${job.company}\nTitle: ${job.title}\n\n${(job.description || '').slice(0, 20000)}\n</job_posting>\n<questions>\n${questions.map((q) => `[${q.id}] ${q.question}${q.maxLength ? ` (max ${q.maxLength} characters)` : ''}${q.long ? '' : ' (short field)'}`).join('\n')}\n</questions>`,
+    }],
+  });
+  if (response.stop_reason === 'refusal' || !response.parsed_output) return [];
+  const allowed = `${baseResume}\n${JSON.stringify(facts)}\n${job.description || ''}`;
+  return response.parsed_output.answers
+    .filter((a) => a.canAnswer && a.answer.trim() && questions.some((q) => q.id === a.id))
+    .map((a) => ({ ...a, question: questions.find((q) => q.id === a.id).question, problems: factCheck({ headline: '', summary: a.answer, experience: [], projects: [], skills: [], education: [], certifications: [] }, allowed) }))
+    .filter((a) => !a.problems.length);
 }

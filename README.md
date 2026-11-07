@@ -19,9 +19,10 @@ search  →  tailor  →  fill  →  review page  →  you approve  →  submit
 
 - **search** checks company career sites (Greenhouse, Lever, Ashby, Workday, SmartRecruiters, Workable, Recruitee) and job search sites (Adzuna, The Muse, Remotive, Himalayas). Optionally it can also search LinkedIn, Indeed, Glassdoor and ZipRecruiter. It drops jobs whose title, location, age or required years of experience don't fit your settings, and removes duplicates.
 - **tailor** asks Claude to pick, reorder and reword your real resume for each job and saves it as a PDF in the same layout as a classic LaTeX resume (Computer Modern font, small-caps section titles, bold lead-ins on each bullet), at most two pages. A fact check then compares every number, employer, skill and certification with your base resume. If anything was made up, it asks Claude to fix it once, and if it is still wrong the job is flagged for you instead of used.
-- **fill** opens each application in Chrome, clicks through to the form, fills it using the same matching as the extension, uploads the tailored resume, and takes a screenshot.
-- **review** builds `autopilot/data/review.html`: every job with its fit notes, tailored resume, screenshot and anything left for you to answer.
-- **approve** + **submit** sends only the jobs you approved, and only when every required question was answered. It waits for the "thank you" page and marks each job submitted or failed.
+- Each resume is shaped around the job description: a Software Engineer posting gets a Software Engineer headline and summary with your engineering work first, a Data Scientist posting gets your data science work first, and skills are ordered by what the posting asks for. Your job titles at each employer never change. A cover letter for that job is written at the same time, under the same fact check.
+- **fill** opens each application in Chrome, clicks through to the form, fills it using the same matching as the extension, uploads the tailored resume and cover letter, writes answers to that form's open questions ("Why do you want to work here?") from your resume and the job description, and takes a screenshot. Questions it can't answer honestly (a referrer's name, a salary you haven't set) are left for you.
+- **review** builds `autopilot/data/review.html`: every job with its fit notes, tailored resume, cover letter, the answers written for it, a screenshot, and anything left for you to answer.
+- **approve** + **submit** sends only the jobs you approved, with exactly the answers you reviewed, and only when every required question was answered. It waits for the "thank you" page and marks each job submitted or failed.
 
 ### Set up (once)
 
@@ -68,7 +69,6 @@ In `autopilot/my/config.json`:
 
 - Sites that make you **sign in or create an account** first (most Workday sites, iCIMS, Taleo) and **CAPTCHAs** are flagged as *Needs you*. The browser profile is saved in `autopilot/my/browser-profile`, so after you sign in once with `--keep-open`, later runs reuse that login.
 - **Workday** forms have several pages. The autopilot fills the first page and leaves the rest for you.
-- Open-ended questions ("Why do you want to work here?") are left for you, unless you saved an answer in `profile.json` → `customAnswers`.
 - Job boards change their pages and feeds. If a source stops returning jobs, the search prints which one failed.
 
 ### Tests

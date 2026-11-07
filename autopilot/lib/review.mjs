@@ -18,6 +18,8 @@ export function reviewHtml(jobs, dataDir) {
     ${j.review?.length ? `<div class="todo"><b>Left for you:</b><ul>${j.review.map((q) => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}
     ${j.factProblems?.length ? `<div class="todo"><b>Resume check failed:</b><ul>${j.factProblems.map((q) => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}
     <p class="links"><a href="${esc(j.url)}" target="_blank">Job posting</a>${j.applyUrl ? ` · <a href="${esc(j.finalUrl || j.applyUrl)}" target="_blank">Application form</a>` : ''}${j.pdf ? ` · <a href="${esc(rel(dataDir, j.pdf))}" target="_blank">Tailored resume (PDF)</a>` : ''}</p>
+    ${j.drafted?.length ? `<details open><summary>Answers written for this job (${j.drafted.length})</summary>${j.drafted.map((a) => `<p class="qa"><b>${esc(a.question)}</b><br>${esc(a.answer)}</p>`).join('')}</details>` : ''}
+    ${j.coverLetter ? `<details><summary>Cover letter</summary><div class="letter">${esc(j.coverLetter).replace(/\n/g, '<br>')}</div>${j.coverPdf ? `<p><a href="${esc(rel(dataDir, j.coverPdf))}" target="_blank">Cover letter (PDF)</a></p>` : ''}</details>` : ''}
     ${j.shot ? `<details><summary>Screenshot of the filled form</summary><img loading="lazy" src="${esc(rel(dataDir, j.shot))}" alt="Filled form for ${esc(j.company)}"></details>` : ''}
   </article>`;
   const ready = jobs.filter((j) => j.status === 'ready').map((j) => j.num);
@@ -34,7 +36,8 @@ export function reviewHtml(jobs, dataDir) {
   header { display:flex; gap:12px; align-items:flex-start; } header div { flex:1; } h2 { font-size:17px; margin:0; } header p { margin:2px 0 0; color:var(--muted); }
   .num { font-weight:700; color:var(--muted); } .badge { font-size:12px; border:1px solid var(--line); border-radius:999px; padding:2px 10px; white-space:nowrap; }
   .notes { margin:10px 0 0; } .todo { color:var(--amber); margin-top:8px; } .todo ul { margin:4px 0 0 18px; padding:0; }
-  .links a { color:var(--pine); } img { max-width:100%; border:1px solid var(--line); border-radius:6px; margin-top:8px; }
+  .links a { color:var(--pine); } details { margin-top:8px; } summary { cursor:pointer; color:var(--pine); }
+  .qa { margin:8px 0; } .letter { white-space:normal; background:rgba(127,127,127,.08); padding:10px 12px; border-radius:6px; margin-top:6px; } img { max-width:100%; border:1px solid var(--line); border-radius:6px; margin-top:8px; }
   </style></head><body><main>
   <h1>Job autopilot review</h1>
   <p class="lead">${jobs.length} jobs · ${ready.length} ready for approval · ${jobs.filter((j) => j.status === 'needs-you').length} need you · ${jobs.filter((j) => j.status === 'submitted').length} submitted</p>

@@ -10,8 +10,8 @@ import { execFileSync } from 'child_process';
 import { chromium } from 'playwright';
 import * as S from '../lib/sources.mjs';
 import { requiredYears, check } from '../lib/filter.mjs';
-import { factCheck, tailorResume } from '../lib/tailor.mjs';
-import { resumeHtml, writePdf } from '../lib/resume-html.mjs';
+import { factCheck, tailorResume, answerQuestions } from '../lib/tailor.mjs';
+import { resumeHtml, coverLetterHtml, writePdf } from '../lib/resume-html.mjs';
 import { fillApplication } from '../lib/apply.mjs';
 import { reviewHtml } from '../lib/review.mjs';
 
@@ -91,13 +91,16 @@ const good = {
   projects: [], skills: [{ group: 'Languages', items: ['Python', 'SQL'] }],
   education: [{ school: 'New England College', degree: 'M.S. Computer Information Systems', dates: '2024', location: 'Henniker, NH', details: [{ label: 'GPA', text: '3.8' }] }],
   certifications: ['Azure Data Engineer Associate'], matchNotes: 'Strong NLP fit.',
+  coverLetter: 'Dear Hiring Team,\n\nI built NLP extraction over 10K+ contracts at Verizon.\n\nSincerely,',
 };
 t('fact check passes a faithful resume', factCheck(good, baseResume).length === 0, factCheck(good, baseResume).join('; '));
 const bad = structuredClone(good);
 bad.experience[0].bullets.push({ label: 'Cost', text: 'Cut cloud costs by 70%' });
 bad.experience.push({ company: 'Google', title: 'ML Engineer', dates: '2020', location: '', bullets: [] });
 bad.skills[0].items.push('Kubernetes');
+bad.coverLetter = 'I led a team of 12 engineers.';
 const probs = factCheck(bad, baseResume);
+t('fact check also covers the cover letter', probs.some((p) => p.includes('12')), probs.join('; '));
 t('fact check catches invented number, employer and skill', probs.some((p) => p.includes('70%')) && probs.some((p) => p.includes('Google')) && probs.some((p) => p.includes('Kubernetes')), probs.join('; '));
 const calls = [];
 const fakeClient = { messages: { parse: async (req) => { calls.push(req); return { stop_reason: 'end_turn', parsed_output: calls.length === 1 ? bad : good }; } } };
@@ -112,6 +115,22 @@ const pdf = path.join(tmp, 'resume.pdf');
 await writePdf(browser, resumeHtml(good, profile), pdf);
 const pdfText = readFileSync(pdf, 'latin1');
 t('resume PDF is written, one page for a short resume, with the Computer Modern font', statSync(pdf).size > 5000 && (pdfText.match(/\/Type\s*\/Page[^s]/g) || []).length === 1 && /CMU/.test(pdfText));
+
+const coverPdf = path.join(tmp, 'cover.pdf');
+await writePdf(browser, coverLetterHtml(good.coverLetter, profile, { company: 'Acme', title: 'Data Scientist' }), coverPdf);
+t('cover letter PDF is one page', (readFileSync(coverPdf, 'latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+
+console.log('\n# Answers to open questions (Claude replaced by canned replies)');
+const qCalls = [];
+const qClient = { messages: { parse: async (req) => { qCalls.push(req); return { stop_reason: 'end_turn', parsed_output: { answers: [
+  { id: '0', canAnswer: true, answer: 'I enjoy NLP work like my extraction system for 10K+ contracts at Verizon.' },
+  { id: '1', canAnswer: false, answer: '' },
+  { id: '2', canAnswer: true, answer: 'I saved $9M at Ford.' },
+] } }; } } };
+const ans = await answerQuestions({ baseResume, profile, job: { company: 'Acme', title: 'DS', description: 'NLP' }, client: qClient,
+  questions: [{ id: '0', question: 'Why Acme?', long: true }, { id: '1', question: 'Who referred you?', long: false }, { id: '2', question: 'Biggest win?', long: true }] });
+t('keeps grounded answers, drops "can\'t answer" and invented numbers', ans.length === 1 && ans[0].question === 'Why Acme?', JSON.stringify(ans));
+t('question list and job are sent to Claude', qCalls[0].messages[0].content.includes('[1] Who referred you?') && qCalls[0].messages[0].content.includes('Company: Acme'));
 
 // ---------- applying ----------
 console.log('\n# Filling applications (local practice pages)');
@@ -132,7 +151,19 @@ t('screenshot saved', existsSync(path.join(tmp, 's1.png')));
 await f1.close();
 
 r = await fillApplication(context, { applyUrl: `${base}/apply-form-open-question.html` }, { profile, pdfPath: pdf, submit: true });
-t('open question is left for you and blocks submitting', r.review.some((q) => /favorite dataset/.test(q)) && !r.submitted && r.page.url().endsWith('apply-form-open-question.html'));
+t('unanswered open question is left for you and blocks submitting', r.review.some((q) => /favorite dataset/.test(q)) && !r.submitted && r.page.url().endsWith('apply-form-open-question.html'));
+await r.page.close();
+
+const seen = [];
+const answerer = async (qs) => { seen.push(...qs); return qs.map((q) => ({ id: q.id, question: q.question, answer: 'Contract datasets, because of my extraction work.' })); };
+r = await fillApplication(context, { applyUrl: `${base}/apply-form-open-question.html` }, { profile: { ...profile, coverLetter: 'Dear Hiring Team, ...' }, pdfPath: pdf, coverLetterPath: coverPdf, answerer });
+t('drafts a job-specific answer for the open question and fills it', seen.length === 1 && /favorite dataset/i.test(seen[0].question) && (await r.page.inputValue('#q')).startsWith('Contract datasets') && r.review.length === 0, r.review.join(' | '));
+t('attaches the cover letter to its own upload field', (await r.page.$eval('#cl', (el) => el.files[0]?.name)) === 'cover.pdf' && (await r.page.$eval('#cv', (el) => el.files[0]?.name)) === 'resume.pdf');
+const drafted = r.drafted;
+await r.page.close();
+
+r = await fillApplication(context, { applyUrl: `${base}/apply-form-open-question.html` }, { profile, pdfPath: pdf, coverLetterPath: coverPdf, submit: true, savedAnswers: drafted });
+t('submit re-uses the exact answers you reviewed (no new drafting) and sends', r.submitted === true && r.drafted[0].answer === drafted[0].answer, r.review.join(' | '));
 await r.page.close();
 
 r = await fillApplication(context, { applyUrl: `${base}/apply-form.html` }, { profile, pdfPath: pdf, submit: true });

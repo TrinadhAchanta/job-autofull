@@ -84,6 +84,24 @@ export function resumeHtml(r, profile) {
   </body></html>`;
 }
 
+export function coverLetterHtml(letter, profile, job) {
+  const name = [profile.firstName, profile.middleName, profile.lastName].filter(Boolean).join(' ');
+  const contact = [profile.email, profile.phone, profile.linkedin && profile.linkedin.replace(/^https?:\/\/(www\.)?/, ''), [profile.city, profile.state].filter(Boolean).join(', ')].filter(Boolean);
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const paras = String(letter).trim().split(/\n\s*\n/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+  ${fontFaces()}
+  @page { size: A4; margin: 0.8in 0.9in; }
+  body { margin: 0; font-family: "CMU Serif", Georgia, serif; font-size: 11pt; line-height: 1.4; color: #000; }
+  h1 { font-size: 19pt; margin: 0; } .contact { margin: 2pt 0 18pt; padding-bottom: 6pt; border-bottom: .6pt solid #000; }
+  p { margin: 0 0 10pt; text-align: justify; } .meta { margin-bottom: 14pt; }
+  </style></head><body>
+  <h1>${esc(name)}</h1><div class="contact">${contact.map(esc).join(' &nbsp;|&nbsp; ')}</div>
+  <div class="meta">${esc(date)}<br>${esc(job.company)}<br>Re: ${esc(job.title)}</div>
+  ${paras}<p>${esc(name)}</p>
+  </body></html>`;
+}
+
 export async function writePdf(browser, html, file) {
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'load' });

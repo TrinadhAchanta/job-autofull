@@ -8,8 +8,8 @@ import { chromium } from 'playwright';
 import { createStore } from './lib/store.mjs';
 import { searchAll } from './lib/sources.mjs';
 import { filterJobs, check } from './lib/filter.mjs';
-import { tailorResume } from './lib/tailor.mjs';
-import { resumeHtml, writePdf } from './lib/resume-html.mjs';
+import { tailorResume, answerQuestions } from './lib/tailor.mjs';
+import { resumeHtml, coverLetterHtml, writePdf } from './lib/resume-html.mjs';
 import { fillApplication } from './lib/apply.mjs';
 import { reviewHtml } from './lib/review.mjs';
 
@@ -83,11 +83,14 @@ async function tailor() {
       writeFileSync(`${base}.json`, JSON.stringify(resume, null, 2));
       const pdf = `${base}.pdf`;
       await writePdf(browser, resumeHtml(resume, profile), pdf);
+      const coverPdf = `${base}-cover-letter.pdf`;
+      await writePdf(browser, coverLetterHtml(resume.coverLetter, profile, j), coverPdf);
+      const extra = { coverLetter: resume.coverLetter, coverPdf };
       if (problems.length) {
-        store.update(j.id, { status: 'needs-you', pdf, matchNotes: resume.matchNotes, factProblems: problems, review: ['The resume mentions things not in your base resume. Fix the PDF or skip this job'] });
+        store.update(j.id, { ...extra, status: 'needs-you', pdf, matchNotes: resume.matchNotes, factProblems: problems, review: ['The resume mentions things not in your base resume. Fix the PDF or skip this job'] });
         log(`  ! check failed: ${problems.join('; ')}`);
       } else {
-        store.update(j.id, { status: 'tailored', pdf, matchNotes: resume.matchNotes, factProblems: [] });
+        store.update(j.id, { ...extra, status: 'tailored', pdf, matchNotes: resume.matchNotes, factProblems: [] });
         log('  done');
       }
     } catch (e) {
@@ -103,8 +106,10 @@ async function withBrowser(fn, { headless }) {
   try { return await fn(context); } finally { if (!flag('keep-open')) await context.close(); }
 }
 
+const jobProfile = (profile, j) => ({ ...profile, coverLetter: j.coverLetter || profile.coverLetter });
+
 async function fill() {
-  const { config, profile } = loadSetup();
+  const { config, profile, baseResume } = loadSetup();
   const limit = Number(flag('limit', config.apply?.maxPerRun || 10));
   const jobs = store.all().filter((j) => j.status === 'tailored').slice(0, limit);
   if (!jobs.length) return log('Nothing to fill. Run tailor first.');
@@ -113,8 +118,12 @@ async function fill() {
     for (const j of jobs) {
       log(`Filling #${j.num} ${j.title} · ${j.company}...`);
       const shot = path.join(DATA, 'shots', `${j.num}.png`);
-      const r = await fillApplication(context, j, { profile, pdfPath: j.pdf, shotPath: shot });
-      store.update(j.id, { status: r.review.length ? 'needs-you' : 'ready', review: r.review, filledCount: r.filled, finalUrl: r.finalUrl, shot });
+      const answerer = baseResume
+        ? (questions) => answerQuestions({ baseResume, profile, job: j, questions, model: config.tailor?.model, effort: config.tailor?.effort })
+        : null;
+      const r = await fillApplication(context, j, { profile: jobProfile(profile, j), pdfPath: j.pdf, coverLetterPath: j.coverPdf, shotPath: shot, answerer });
+      store.update(j.id, { status: r.review.length ? 'needs-you' : 'ready', review: r.review, drafted: r.drafted, filledCount: r.filled, finalUrl: r.finalUrl, shot });
+      if (r.drafted.length) log(`  drafted ${r.drafted.length} answer(s) for this job`);
       log(r.review.length ? `  needs you: ${r.review.join(' | ')}` : `  ready (${r.filled} fields filled, resume attached)`);
       if (!flag('keep-open')) await r.page.close();
     }
@@ -130,7 +139,8 @@ async function submit() {
     for (const j of jobs) {
       log(`Submitting #${j.num} ${j.title} · ${j.company}...`);
       const shot = path.join(DATA, 'shots', `${j.num}-submitted.png`);
-      const r = await fillApplication(context, j, { profile, pdfPath: j.pdf, shotPath: shot, submit: true });
+      // Re-uses the exact answers you reviewed; never drafts new ones at submit time.
+      const r = await fillApplication(context, j, { profile: jobProfile(profile, j), pdfPath: j.pdf, coverLetterPath: j.coverPdf, shotPath: shot, submit: true, savedAnswers: j.drafted || [] });
       if (r.submitted) { store.update(j.id, { status: 'submitted', submittedAt: new Date().toISOString(), shot }); log('  submitted'); }
       else { store.update(j.id, { status: 'submit-failed', review: r.review, shot }); log(`  not sent: ${r.review.join(' | ')}`); }
       await r.page.close();

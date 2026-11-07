@@ -318,5 +318,33 @@
     return { title: title.slice(0, 140), company, url: location.href };
   }
 
-  globalThis.__jobAutofill = { fill, pageInfo, _valueFor: valueFor, _optionScore: optionScore };
+  // Free-text questions still empty after fill() (e.g. "Why do you want to work
+  // here?"). Used by the autopilot to draft job-specific answers.
+  function openQuestions() {
+    const out = [];
+    const els = [...document.querySelectorAll('textarea, input[type=text], input:not([type])')].filter(isVisible);
+    els.forEach((el) => {
+      if (el.value.trim()) return;
+      const required = el.required || el.getAttribute('aria-required') === 'true' || /\*/.test(questionFor(el).split(' | ')[0]);
+      if (el.tagName !== 'TEXTAREA' && !required) return;
+      const id = String(out.length);
+      el.dataset.jobAutofillQ = id;
+      out.push({ id, question: shortQ(questionFor(el)).replace(/\s*\*\s*$/, ''), required, long: el.tagName === 'TEXTAREA', maxLength: el.maxLength > 0 ? el.maxLength : null });
+    });
+    return out;
+  }
+
+  function setAnswers(answers) {
+    let n = 0;
+    for (const { id, answer } of answers) {
+      const el = document.querySelector(`[data-job-autofill-q="${id}"]`);
+      if (!el || !answer) continue;
+      setNativeValue(el, el.maxLength > 0 ? answer.slice(0, el.maxLength) : answer);
+      mark(el, 'filled', 'Drafted for this job. Please read it.');
+      n++;
+    }
+    return n;
+  }
+
+  globalThis.__jobAutofill = { fill, pageInfo, openQuestions, setAnswers, _valueFor: valueFor, _optionScore: optionScore };
 })();

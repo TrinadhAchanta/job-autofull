@@ -1,28 +1,116 @@
 {
   "search": {
-    "keywords": ["data scientist", "machine learning engineer", "applied scientist", "nlp engineer"],
-    "titleInclude": ["data scientist", "machine learning", "ml engineer", "applied scientist", "ai engineer", "nlp", "data science"],
-    "titleExclude": ["intern", "internship", "principal", "director", "manager", "staff", "head of", "vp", "lead"],
-    "locationInclude": ["remote", "united states", "usa", "us", "boston", "new york", "massachusetts", "ma", "anywhere"],
+    "keywords": [
+      "data scientist",
+      "machine learning engineer",
+      "software engineer",
+      "data engineer",
+      "ai engineer"
+    ],
+    "titleInclude": [
+      "data scientist",
+      "data science",
+      "machine learning",
+      "ml engineer",
+      "applied scientist",
+      "ai engineer",
+      "nlp",
+      "software engineer",
+      "software developer",
+      "backend engineer",
+      "python engineer",
+      "data engineer"
+    ],
+    "titleExclude": [
+      "intern",
+      "internship",
+      "principal",
+      "director",
+      "manager",
+      "staff",
+      "head of",
+      "vp",
+      "lead"
+    ],
+    "locationInclude": [
+      "remote",
+      "united states",
+      "usa",
+      "us",
+      "boston",
+      "new york",
+      "massachusetts",
+      "ma",
+      "anywhere"
+    ],
     "maxYearsRequired": 6,
     "maxAgeDays": 21,
     "needsSponsorship": false
   },
   "companies": {
-    "greenhouse": ["airbnb", "stripe", "databricks", "robinhood", "instacart", "coinbase", "reddit", "pinterest", "lyft", "figma", "discord", "duolingo", "gitlab", "dropbox", "affirm"],
-    "lever": ["palantir", "spotify"],
-    "ashby": ["ramp", "notion", "openai", "linear"],
+    "greenhouse": [
+      "airbnb",
+      "stripe",
+      "databricks",
+      "robinhood",
+      "instacart",
+      "coinbase",
+      "reddit",
+      "pinterest",
+      "lyft",
+      "figma",
+      "discord",
+      "duolingo",
+      "gitlab",
+      "dropbox",
+      "affirm"
+    ],
+    "lever": [
+      "palantir",
+      "spotify"
+    ],
+    "ashby": [
+      "ramp",
+      "notion",
+      "openai",
+      "linear"
+    ],
     "workable": [],
     "smartrecruiters": [],
     "recruitee": [],
     "workday": []
   },
   "searchSites": {
-    "remotive": { "enabled": true },
-    "himalayas": { "enabled": true },
-    "themuse": { "enabled": true, "location": "" },
-    "adzuna": { "enabled": true, "appId": "", "appKey": "", "country": "us", "where": "", "maxDaysOld": 14 },
-    "jobspy": { "enabled": false, "sites": ["linkedin", "indeed", "glassdoor", "zip_recruiter"], "location": "United States", "hoursOld": 72, "resultsWanted": 40 }
+    "remotive": {
+      "enabled": true
+    },
+    "himalayas": {
+      "enabled": true
+    },
+    "themuse": {
+      "enabled": true,
+      "location": ""
+    },
+    "adzuna": {
+      "enabled": true,
+      "appId": "",
+      "appKey": "",
+      "country": "us",
+      "where": "",
+      "maxDaysOld": 14
+    },
+    "jobspy": {
+      "enabled": false,
+      "sites": [
+        "linkedin",
+        "indeed",
+        "glassdoor",
+        "zip_recruiter"
+      ],
+      "location": "United States",
+      "hoursOld": 72,
+      "resultsWanted": 40
+    }
   },
   "tailor": {
     "model": "claude-opus-5-5",
