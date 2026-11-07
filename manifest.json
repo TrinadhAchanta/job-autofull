@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Job Autofill",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Fill job application forms from your saved profile in one click. You always review and submit yourself.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [

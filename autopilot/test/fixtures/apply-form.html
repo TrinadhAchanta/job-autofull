@@ -1,0 +1,14 @@
+<!doctype html><html><head><title>Apply</title></head><body>
+<form id="f" action="thanks.html">
+<label for="fn">First Name *</label><input id="fn" required>
+<label for="ln">Last Name *</label><input id="ln" required>
+<label for="em">Email *</label><input id="em" type="email" required>
+<label for="ph">Phone *</label><input id="ph" required>
+<label for="cv">Resume/CV *</label><input id="cv" name="resume" type="file" required>
+<label for="li">LinkedIn Profile</label><input id="li">
+<label for="auth">Are you legally authorized to work in the United States? *</label>
+<select id="auth" required><option value="">--</option><option>Yes</option><option>No</option></select>
+<button type="submit">Submit Application</button>
+</form>
+<script>document.getElementById('f').addEventListener('submit', (e) => { e.preventDefault(); if (!document.getElementById('cv').files.length) return; location.href = 'thanks.html'; });</script>
+</body></html>
