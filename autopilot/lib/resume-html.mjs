@@ -3,7 +3,7 @@
 // small-caps section titles with a rule, bold company / italic title rows with
 // dates and places on the right, and bullets that start with a bold lead-in.
 // The text stays real text, so applicant tracking systems can read it.
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import path from 'path';
 
@@ -50,7 +50,8 @@ export function resumeHtml(r, profile) {
   ${fontFaces()}
   @page { size: A4; margin: 0.42in 0.5in 0.45in; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "CMU Serif", "Latin Modern Roman", "Computer Modern", Georgia, serif; font-size: 9.6pt; line-height: 1.22; color: #000; }
+  :root { --fs: 9.6pt; }
+  body { margin: 0; font-family: "CMU Serif", "Latin Modern Roman", "Computer Modern", Georgia, serif; font-size: var(--fs); line-height: 1.22; color: #000; }
   a { color: inherit; text-decoration: none; }
   header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2pt; }
   h1 { font-size: 19pt; font-weight: 700; margin: 0 0 1pt; letter-spacing: .01em; }
@@ -87,6 +88,14 @@ export async function writePdf(browser, html, file) {
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'load' });
   await page.evaluate(() => document.fonts.ready);
-  await page.pdf({ path: file, preferCSSPageSize: true, printBackground: true });
+  // Keep it to two A4 pages: if it runs over, shrink the text a little at a time.
+  const pages = (buf) => (buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+  let pdf;
+  for (let fs = 9.6; fs >= 8.4; fs -= 0.2) {
+    await page.evaluate((v) => document.documentElement.style.setProperty('--fs', v + 'pt'), fs.toFixed(1));
+    pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    if (pages(pdf) <= 2) break;
+  }
+  writeFileSync(file, pdf);
   await page.close();
 }
